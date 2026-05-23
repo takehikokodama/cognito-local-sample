@@ -1,0 +1,19 @@
+{
+  "name": "cognito-local-sample",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend",
+    "local-idp"
+  ],
+  "scripts": {
+    "dev": "concurrently -n idp,api,web -c blue,green,yellow \"npm run dev:idp\" \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:idp": "npm run dev --workspace=local-idp",
+    "dev:api": "npm run dev --workspace=backend",
+    "dev:web": "npm run dev --workspace=frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}
