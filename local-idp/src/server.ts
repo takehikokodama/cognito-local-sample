@@ -12,6 +12,7 @@ import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import { users } from "./users";
+import { verifyPkce } from "./pkce";
 
 const PORT = 4000;
 const ISSUER = process.env.OIDC_ISSUER ?? "http://localhost:4000";
@@ -33,9 +34,9 @@ interface AuthCodeEntry {
   expiresAt: number;
 }
 
-const authCodes = new Map<string, AuthCodeEntry>();
+export const authCodes = new Map<string, AuthCodeEntry>();
 
-async function loadOrGenerateKeys(): Promise<void> {
+export async function loadOrGenerateKeys(): Promise<void> {
   if (fs.existsSync(PRIVATE_KEY_FILE) && fs.existsSync(PUBLIC_JWK_FILE)) {
     const pem = fs.readFileSync(PRIVATE_KEY_FILE, "utf8");
     privateKey = await importPKCS8(pem, "RS256");
@@ -51,6 +52,17 @@ async function loadOrGenerateKeys(): Promise<void> {
     privateKey = keyPair.privateKey;
     console.log("[IdP] Generated new RSA key pair");
   }
+}
+
+/** テスト用: 鍵を直接セット */
+export function setKeys(pk: KeyLike, jwk: JWK): void {
+  privateKey = pk;
+  publicKeyJwk = jwk;
+}
+
+/** テスト用: 認証コードストアをリセット */
+export function clearAuthCodes(): void {
+  authCodes.clear();
 }
 
 async function signJwt(
@@ -72,9 +84,7 @@ function escapeHtml(str: string): string {
     .replace(/"/g, "&quot;");
 }
 
-async function main() {
-  await loadOrGenerateKeys();
-
+export function createApp() {
   const app = express();
 
   app.use((_req, res, next) => {
@@ -92,30 +102,33 @@ async function main() {
   app.use(express.json());
 
   // OIDC Discovery
-  app.get("/.well-known/openid-configuration", (_req: Request, res: Response) => {
-    res.json({
-      issuer: ISSUER,
-      authorization_endpoint: `${ISSUER}/authorize`,
-      token_endpoint: `${ISSUER}/token`,
-      jwks_uri: `${ISSUER}/.well-known/jwks.json`,
-      end_session_endpoint: `${ISSUER}/logout`,
-      response_types_supported: ["code"],
-      subject_types_supported: ["public"],
-      id_token_signing_alg_values_supported: ["RS256"],
-      scopes_supported: ["openid", "email", "profile"],
-      token_endpoint_auth_methods_supported: ["none"],
-      claims_supported: [
-        "sub",
-        "iss",
-        "aud",
-        "email",
-        "name",
-        "cognito:groups",
-        "custom:tenant_id",
-      ],
-      code_challenge_methods_supported: ["S256", "plain"],
-    });
-  });
+  app.get(
+    "/.well-known/openid-configuration",
+    (_req: Request, res: Response) => {
+      res.json({
+        issuer: ISSUER,
+        authorization_endpoint: `${ISSUER}/authorize`,
+        token_endpoint: `${ISSUER}/token`,
+        jwks_uri: `${ISSUER}/.well-known/jwks.json`,
+        end_session_endpoint: `${ISSUER}/logout`,
+        response_types_supported: ["code"],
+        subject_types_supported: ["public"],
+        id_token_signing_alg_values_supported: ["RS256"],
+        scopes_supported: ["openid", "email", "profile"],
+        token_endpoint_auth_methods_supported: ["none"],
+        claims_supported: [
+          "sub",
+          "iss",
+          "aud",
+          "email",
+          "name",
+          "cognito:groups",
+          "custom:tenant_id",
+        ],
+        code_challenge_methods_supported: ["S256", "plain"],
+      });
+    }
+  );
 
   // JWKS
   app.get("/.well-known/jwks.json", (_req: Request, res: Response) => {
@@ -137,7 +150,9 @@ async function main() {
     } = req.query as Record<string, string>;
 
     if (response_type !== "code" || client_id !== CLIENT_ID) {
-      res.status(400).send("Invalid request: unsupported response_type or client_id");
+      res
+        .status(400)
+        .send("Invalid request: unsupported response_type or client_id");
       return;
     }
 
@@ -235,7 +250,6 @@ async function main() {
       return;
     }
 
-    // PKCE verification
     if (entry.codeChallenge) {
       if (!code_verifier) {
         res.status(400).json({
@@ -245,17 +259,7 @@ async function main() {
         return;
       }
 
-      let computed: string;
-      if (entry.codeChallengeMethod === "S256") {
-        computed = crypto
-          .createHash("sha256")
-          .update(code_verifier)
-          .digest("base64url");
-      } else {
-        computed = code_verifier;
-      }
-
-      if (computed !== entry.codeChallenge) {
+      if (!verifyPkce(code_verifier, entry.codeChallenge, entry.codeChallengeMethod ?? "plain")) {
         res.status(400).json({
           error: "invalid_grant",
           error_description: "code_verifier mismatch",
@@ -319,9 +323,18 @@ async function main() {
     }
   });
 
+  return app;
+}
+
+async function main() {
+  await loadOrGenerateKeys();
+  const app = createApp();
   app.listen(PORT, () => {
     console.log(`[IdP] Running at http://localhost:${PORT}`);
   });
 }
 
-main().catch(console.error);
+// テスト実行時はサーバーを起動しない
+if (!process.env.VITEST) {
+  main().catch(console.error);
+}
