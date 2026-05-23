@@ -12,7 +12,7 @@
     "dev:idp": "npm run dev --workspace=local-idp",
     "dev:api": "npm run dev --workspace=backend",
     "dev:web": "npm run dev --workspace=frontend",
-    "test": "npm run test --workspace=backend && npm run test --workspace=local-idp"
+    "test": "npm run test --workspace=backend && npm run test --workspace=local-idp && npm run test --workspace=frontend"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"

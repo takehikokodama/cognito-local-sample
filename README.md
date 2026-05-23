@@ -32,6 +32,38 @@ npm run dev
 
 ブラウザで http://localhost:5173 を開くとホーム画面が表示されます。
 
+## テスト
+
+### 全パッケージまとめて実行
+
+```bash
+npm test
+```
+
+### パッケージ単体で実行
+
+```bash
+npm test --workspace=backend    # backend: 9件
+npm test --workspace=local-idp  # local-idp: 16件
+npm test --workspace=frontend   # frontend: 20件
+```
+
+### ウォッチモード (ファイル変更時に自動再実行)
+
+```bash
+npx vitest --workspace=backend
+npx vitest --workspace=local-idp
+npx vitest --workspace=frontend
+```
+
+### テスト構成
+
+| パッケージ | テストファイル | 主な確認内容 |
+| ---------- | -------------- | ------------ |
+| `backend` | `src/app.test.ts` | JWT検証、各APIエンドポイントの認可ロジック |
+| `local-idp` | `src/server.test.ts` | PKCE検証、認証コードフロー、トークンクレーム |
+| `frontend` | `src/pages/*.test.tsx` | コンポーネント表示、ユーザー操作、fetch呼び出し |
+
 ## テストユーザー
 
 | 名前              | email                | グループ        | テナント   |
