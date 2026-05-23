@@ -5,6 +5,8 @@ import {
   exportPKCS8,
   importPKCS8,
   SignJWT,
+  type JWK,
+  type KeyLike,
 } from "jose";
 import crypto from "crypto";
 import fs from "fs";
@@ -19,8 +21,8 @@ const KEYS_DIR = path.join(__dirname, "..", "keys");
 const PRIVATE_KEY_FILE = path.join(KEYS_DIR, "private.pem");
 const PUBLIC_JWK_FILE = path.join(KEYS_DIR, "public.jwk.json");
 
-let privateKey: CryptoKey;
-let publicKeyJwk: Record<string, unknown>;
+let privateKey: KeyLike;
+let publicKeyJwk: JWK;
 
 interface AuthCodeEntry {
   userId: string;
@@ -37,9 +39,7 @@ async function loadOrGenerateKeys(): Promise<void> {
   if (fs.existsSync(PRIVATE_KEY_FILE) && fs.existsSync(PUBLIC_JWK_FILE)) {
     const pem = fs.readFileSync(PRIVATE_KEY_FILE, "utf8");
     privateKey = await importPKCS8(pem, "RS256");
-    publicKeyJwk = JSON.parse(
-      fs.readFileSync(PUBLIC_JWK_FILE, "utf8")
-    ) as Record<string, unknown>;
+    publicKeyJwk = JSON.parse(fs.readFileSync(PUBLIC_JWK_FILE, "utf8")) as JWK;
     console.log("[IdP] Loaded existing RSA key pair");
   } else {
     fs.mkdirSync(KEYS_DIR, { recursive: true });
