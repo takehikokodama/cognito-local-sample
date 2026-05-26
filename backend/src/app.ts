@@ -6,9 +6,14 @@ import {
   type AppVariables,
 } from "./middleware/auth";
 import type { MiddlewareHandler } from "hono";
+import {
+  drizzleOrderRepository,
+  type OrderRepository,
+} from "./db/repository";
 
 export function createApp(
-  authMW: MiddlewareHandler<{ Variables: AppVariables }> = defaultAuthMiddleware
+  authMW: MiddlewareHandler<{ Variables: AppVariables }> = defaultAuthMiddleware,
+  orderRepo: OrderRepository = drizzleOrderRepository
 ) {
   const app = new Hono<{ Variables: AppVariables }>();
 
@@ -17,7 +22,7 @@ export function createApp(
     cors({
       origin: "http://localhost:5173",
       allowHeaders: ["Authorization", "Content-Type"],
-      allowMethods: ["GET", "POST", "OPTIONS"],
+      allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     })
   );
 
@@ -44,16 +49,60 @@ export function createApp(
     });
   });
 
-  app.get("/api/orders", (c) => {
+  // GET /api/orders - テナントの注文一覧
+  app.get("/api/orders", async (c) => {
     const user = c.get("user");
-    const allOrders = [
-      { id: "order-1", tenantId: "tenant-a", item: "Widget A", amount: 100 },
-      { id: "order-2", tenantId: "tenant-a", item: "Widget B", amount: 200 },
-      { id: "order-3", tenantId: "tenant-b", item: "Gadget X", amount: 300 },
-      { id: "order-4", tenantId: "tenant-b", item: "Gadget Y", amount: 150 },
-    ];
-    const orders = allOrders.filter((o) => o.tenantId === user.tenantId);
-    return c.json({ orders });
+    const rows = await orderRepo.findByTenant(user.tenantId);
+    return c.json({ orders: rows });
+  });
+
+  // GET /api/orders/:id - 注文詳細
+  app.get("/api/orders/:id", async (c) => {
+    const user = c.get("user");
+    const id = c.req.param("id");
+    const order = await orderRepo.findById(id, user.tenantId);
+    if (!order) {
+      return c.json({ error: "Not Found" }, 404);
+    }
+    return c.json({ order });
+  });
+
+  // POST /api/orders - 注文作成
+  app.post("/api/orders", async (c) => {
+    const user = c.get("user");
+    const body = await c.req.json<{ item: string; amount: number }>();
+    if (!body.item || body.amount == null) {
+      return c.json({ error: "item and amount are required" }, 400);
+    }
+    const order = await orderRepo.create({
+      tenantId: user.tenantId,
+      item: body.item,
+      amount: body.amount,
+    });
+    return c.json({ order }, 201);
+  });
+
+  // PUT /api/orders/:id - 注文更新
+  app.put("/api/orders/:id", async (c) => {
+    const user = c.get("user");
+    const id = c.req.param("id");
+    const body = await c.req.json<{ item?: string; amount?: number }>();
+    const order = await orderRepo.update(id, user.tenantId, body);
+    if (!order) {
+      return c.json({ error: "Not Found" }, 404);
+    }
+    return c.json({ order });
+  });
+
+  // DELETE /api/orders/:id - 注文削除
+  app.delete("/api/orders/:id", async (c) => {
+    const user = c.get("user");
+    const id = c.req.param("id");
+    const deleted = await orderRepo.remove(id, user.tenantId);
+    if (!deleted) {
+      return c.json({ error: "Not Found" }, 404);
+    }
+    return c.json({ message: "Deleted" });
   });
 
   return app;

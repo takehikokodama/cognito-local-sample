@@ -20,19 +20,52 @@ AWS Cognito + API Gateway + Lambda + React SPA 構成のローカル開発ひな
    ↓ ⑤ Authorization: Bearer <access_token> を付与
 [Backend API] (Hono, http://localhost:3000)
    ↓ ⑥ JWKS を Local IdP から取得して JWT 検証
-   ↓ ⑦ レスポンス
+   ↓ ⑦ テナント ID で絞り込みクエリ
+[PostgreSQL] (Docker, localhost:5432)
+   ↓ ⑧ レスポンス
 ```
 
 ## セットアップ・起動
 
+### 初回セットアップ
+
+PostgreSQL を Docker で起動し、マイグレーションとシードデータを投入します。
+
 ```bash
 npm install
+npm run db:setup   # Docker起動 → マイグレーション → シードデータ投入
 npm run dev
 ```
 
 ブラウザで http://localhost:5173 を開くとホーム画面が表示されます。
 
+### 2回目以降
+
+PostgreSQL が既に起動済みであれば `npm run dev` だけで OK です。
+
+```bash
+npm run dev
+```
+
+停止後にコンテナを落とす場合:
+
+```bash
+npm run db:down
+```
+
+## DB 操作スクリプト
+
+| コマンド | 説明 |
+| --- | --- |
+| `npm run db:up` | PostgreSQL コンテナを起動 |
+| `npm run db:down` | PostgreSQL コンテナを停止 |
+| `npm run db:migrate` | マイグレーションを実行 |
+| `npm run db:seed` | サンプルデータを投入 |
+| `npm run db:setup` | `db:up` + `db:migrate` + `db:seed` を一括実行 |
+
 ## テスト
+
+テストはモックリポジトリを使用するため、Docker が起動していなくても実行できます。
 
 ### 全パッケージまとめて実行
 
@@ -43,7 +76,7 @@ npm test
 ### パッケージ単体で実行
 
 ```bash
-npm test --workspace=backend    # backend: 9件
+npm test --workspace=backend    # backend: 17件
 npm test --workspace=local-idp  # local-idp: 16件
 npm test --workspace=frontend   # frontend: 20件
 ```
@@ -60,7 +93,7 @@ npx vitest --workspace=frontend
 
 | パッケージ | テストファイル | 主な確認内容 |
 | ---------- | -------------- | ------------ |
-| `backend` | `src/app.test.ts` | JWT検証、各APIエンドポイントの認可ロジック |
+| `backend` | `src/app.test.ts` | JWT検証、CRUD APIの認可・テナント分離 |
 | `local-idp` | `src/server.test.ts` | PKCE検証、認証コードフロー、トークンクレーム |
 | `frontend` | `src/pages/*.test.tsx` | コンポーネント表示、ユーザー操作、fetch呼び出し |
 
@@ -74,12 +107,30 @@ npx vitest --workspace=frontend
 
 ## API エンドポイント
 
-| メソッド | パス                | 認証      | 説明                                 |
-| -------- | ------------------- | --------- | ------------------------------------ |
-| GET      | /health             | 不要      | ヘルスチェック                       |
-| GET      | /api/me             | 必須      | ログインユーザーの情報を返す         |
-| GET      | /api/orders         | 必須      | テナントに紐づく注文一覧を返す       |
-| GET      | /api/admin/stats    | admin必須 | 統計情報 (adminグループのみ)         |
+### 認証不要
+
+| メソッド | パス | 説明 |
+| -------- | ---- | ---- |
+| GET | `/health` | ヘルスチェック |
+
+### 認証必須 (Authorization: Bearer \<access_token\>)
+
+| メソッド | パス | 説明 |
+| -------- | ---- | ---- |
+| GET | `/api/me` | ログインユーザーの情報を返す |
+| GET | `/api/orders` | テナントに紐づく注文一覧を返す |
+| GET | `/api/orders/:id` | 注文詳細を返す |
+| POST | `/api/orders` | 注文を作成する `{ item: string, amount: number }` |
+| PUT | `/api/orders/:id` | 注文を更新する `{ item?: string, amount?: number }` |
+| DELETE | `/api/orders/:id` | 注文を削除する |
+
+### admin グループ限定
+
+| メソッド | パス | 説明 |
+| -------- | ---- | ---- |
+| GET | `/api/admin/stats` | 統計情報 |
+
+> 注文 API はすべてテナント分離済みです。他テナントのリソースへのアクセスは 404 を返します。
 
 ## 動作確認フロー
 
@@ -92,11 +143,24 @@ npx vitest --workspace=frontend
 
 ## 環境変数
 
-| 変数名              | デフォルト                                         | 用途                              |
-| ------------------- | -------------------------------------------------- | --------------------------------- |
-| `VITE_OIDC_AUTHORITY` | `http://localhost:4000`                          | フロントの OIDC authority         |
-| `OIDC_ISSUER`       | `http://localhost:4000`                            | バックエンドのトークン検証用 iss  |
-| `OIDC_JWKS_URI`     | `http://localhost:4000/.well-known/jwks.json`      | バックエンドの JWKS 取得先        |
+### ローカル開発 (`backend/.env`)
+
+| 変数名 | デフォルト | 用途 |
+| --- | --- | --- |
+| `DATABASE_URL` | `postgres://appuser:apppassword@localhost:5432/appdb` | PostgreSQL 接続文字列 |
+
+### フロントエンド
+
+| 変数名 | デフォルト | 用途 |
+| --- | --- | --- |
+| `VITE_OIDC_AUTHORITY` | `http://localhost:4000` | OIDC authority |
+
+### バックエンド
+
+| 変数名 | デフォルト | 用途 |
+| --- | --- | --- |
+| `OIDC_ISSUER` | `http://localhost:4000` | トークン検証用 iss |
+| `OIDC_JWKS_URI` | `http://localhost:4000/.well-known/jwks.json` | JWKS 取得先 |
 
 本番環境では `.env` に Cognito の値を設定してください:
 
@@ -104,6 +168,7 @@ npx vitest --workspace=frontend
 VITE_OIDC_AUTHORITY=https://cognito-idp.ap-northeast-1.amazonaws.com/ap-northeast-1_XXXXXXXX
 OIDC_ISSUER=https://cognito-idp.ap-northeast-1.amazonaws.com/ap-northeast-1_XXXXXXXX
 OIDC_JWKS_URI=https://cognito-idp.ap-northeast-1.amazonaws.com/ap-northeast-1_XXXXXXXX/.well-known/jwks.json
+DATABASE_URL=<本番DBの接続文字列>
 ```
 
 ## AWS 手動デプロイ手順
@@ -232,7 +297,7 @@ LAMBDA_ARN=$(aws lambda create-function \
   --role $ROLE_ARN \
   --handler dist/lambda.handler \
   --zip-file fileb://backend/function.zip \
-  --environment "Variables={OIDC_ISSUER=https://cognito-idp.ap-northeast-1.amazonaws.com/${POOL_ID},OIDC_JWKS_URI=https://cognito-idp.ap-northeast-1.amazonaws.com/${POOL_ID}/.well-known/jwks.json}" \
+  --environment "Variables={OIDC_ISSUER=https://cognito-idp.ap-northeast-1.amazonaws.com/${POOL_ID},OIDC_JWKS_URI=https://cognito-idp.ap-northeast-1.amazonaws.com/${POOL_ID}/.well-known/jwks.json,DATABASE_URL=<本番DBの接続文字列>}" \
   --query FunctionArn --output text --region ap-northeast-1)
 echo "LAMBDA_ARN: $LAMBDA_ARN"
 
@@ -355,6 +420,7 @@ aws lambda update-function-code \
 | `frontend/.env.production` | `VITE_OIDC_AUTHORITY` | `https://cognito-idp.ap-northeast-1.amazonaws.com/<POOL_ID>` |
 | Lambda 環境変数 | `OIDC_ISSUER` | `https://cognito-idp.ap-northeast-1.amazonaws.com/<POOL_ID>` |
 | Lambda 環境変数 | `OIDC_JWKS_URI` | `https://cognito-idp.ap-northeast-1.amazonaws.com/<POOL_ID>/.well-known/jwks.json` |
+| Lambda 環境変数 | `DATABASE_URL` | `<本番DBの接続文字列>` |
 | `backend/src/app.ts` | CORS origin | `https://<CLOUDFRONT_DOMAIN>` |
 
 ## ディレクトリ構成
@@ -363,6 +429,7 @@ aws lambda update-function-code \
 project-root/
   package.json              # ルート、concurrentlyで全部起動
   tsconfig.base.json        # 共通TypeScript設定
+  docker-compose.yml        # PostgreSQL コンテナ定義
   .gitignore
 
   frontend/                 # React + Vite (port 5173)
@@ -375,12 +442,22 @@ project-root/
         Protected.tsx       # API 呼び出し画面
 
   backend/                  # Hono on Node.js (port 3000)
+    .env                    # DATABASE_URL など (gitignore 済み)
+    drizzle.config.ts       # Drizzle Kit 設定
+    drizzle/
+      0000_create_orders.sql  # マイグレーション SQL
     src/
-      app.ts                # ルーティング
+      app.ts                # ルーティング・CRUD API
       local.ts              # ローカル起動エントリ
       lambda.ts             # 本番 Lambda エントリ (雛形)
       middleware/
         auth.ts             # JWT 検証ミドルウェア
+      db/
+        schema.ts           # Drizzle スキーマ定義
+        index.ts            # DB 接続プール
+        repository.ts       # OrderRepository インターフェースと実装
+        migrate.ts          # マイグレーション実行スクリプト
+        seed.ts             # サンプルデータ投入スクリプト
 
   local-idp/                # ローカル OIDC IdP (port 4000)
     src/
@@ -391,10 +468,40 @@ project-root/
 
 ## トラブルシューティング
 
+**PostgreSQL に接続できない**
+
+```bash
+# コンテナの状態を確認
+docker compose ps
+
+# ログを確認
+docker compose logs postgres
+
+# コンテナを再起動
+npm run db:down && npm run db:up
+sleep 3 && npm run db:migrate
+```
+
 **ポートが使用中のエラー**
 
 ```bash
 kill $(lsof -ti:4000 -ti:3000 -ti:5173)
+```
+
+**5432 ポートが使用中**
+
+```bash
+# 使用中のプロセスを確認
+lsof -ti:5432
+# docker-compose.yml の ports を変更して DATABASE_URL も合わせる
+```
+
+**DB を初期化したい**
+
+```bash
+npm run db:down
+docker volume rm cognito-local-sample_postgres_data
+npm run db:setup
 ```
 
 **鍵を再生成したい**
@@ -413,3 +520,8 @@ npm run dev:idp  # 次回起動時に新しい鍵が生成される
 
 - Backend (port 3000) が起動しているか確認: `curl http://localhost:3000/health`
 - Local IdP の鍵と Backend が一致しているか確認 (鍵を再生成した場合はログインしなおす)
+
+**API が 500 になる**
+
+- PostgreSQL が起動しているか確認: `docker compose ps`
+- `backend/.env` の `DATABASE_URL` が正しいか確認
