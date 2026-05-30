@@ -1,14 +1,14 @@
 import { Hono } from "hono";
+import type { MiddlewareHandler } from "hono";
 import { cors } from "hono/cors";
 import {
-  authMiddleware as defaultAuthMiddleware,
-  buildAuthMiddleware,
   type AppVariables,
+  buildAuthMiddleware,
+  authMiddleware as defaultAuthMiddleware,
 } from "./middleware/auth";
-import type { MiddlewareHandler } from "hono";
 
 export function createApp(
-  authMW: MiddlewareHandler<{ Variables: AppVariables }> = defaultAuthMiddleware
+  authMW: MiddlewareHandler<{ Variables: AppVariables }> = defaultAuthMiddleware,
 ) {
   const app = new Hono<{ Variables: AppVariables }>();
 
@@ -18,7 +18,7 @@ export function createApp(
       origin: "http://localhost:5173",
       allowHeaders: ["Authorization", "Content-Type"],
       allowMethods: ["GET", "POST", "OPTIONS"],
-    })
+    }),
   );
 
   app.get("/health", (c) => c.json({ status: "ok" }));

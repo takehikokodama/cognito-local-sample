@@ -1,12 +1,6 @@
-import { describe, it, expect, beforeAll } from "vitest";
-import {
-  generateKeyPair,
-  exportJWK,
-  createLocalJWKSet,
-  SignJWT,
-  type KeyLike,
-} from "jose";
-import { createApp, buildAuthMiddleware } from "./app";
+import { type KeyLike, SignJWT, createLocalJWKSet, exportJWK, generateKeyPair } from "jose";
+import { beforeAll, describe, expect, it } from "vitest";
+import { buildAuthMiddleware, createApp } from "./app";
 
 const ISSUER = "http://localhost:4000";
 const CLIENT_ID = "local-client";

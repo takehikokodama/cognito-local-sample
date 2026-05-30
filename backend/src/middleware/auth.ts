@@ -1,5 +1,5 @@
-import { createRemoteJWKSet, jwtVerify } from "jose";
 import type { Context, Next } from "hono";
+import { createRemoteJWKSet, jwtVerify } from "jose";
 
 export interface AuthUser {
   sub: string;
@@ -15,15 +15,13 @@ export type AppVariables = {
 type JwksParam = Parameters<typeof jwtVerify>[1];
 
 const ISSUER = process.env.OIDC_ISSUER ?? "http://localhost:4000";
-const JWKS_URI =
-  process.env.OIDC_JWKS_URI ??
-  "http://localhost:4000/.well-known/jwks.json";
+const JWKS_URI = process.env.OIDC_JWKS_URI ?? "http://localhost:4000/.well-known/jwks.json";
 
 export function buildAuthMiddleware(issuer: string, jwks: JwksParam) {
-  return async function (
+  return async (
     c: Context<{ Variables: AppVariables }>,
-    next: Next
-  ): Promise<Response | void> {
+    next: Next,
+  ): Promise<Response | undefined> => {
     const authHeader = c.req.header("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return c.json({ error: "Unauthorized" }, 401);
@@ -34,13 +32,13 @@ export function buildAuthMiddleware(issuer: string, jwks: JwksParam) {
     try {
       const { payload } = await jwtVerify(token, jwks, { issuer });
 
-      if (payload["token_use"] !== "access") {
+      if (payload.token_use !== "access") {
         return c.json({ error: "Unauthorized: not an access token" }, 401);
       }
 
       c.set("user", {
         sub: payload.sub as string,
-        email: payload["email"] as string,
+        email: payload.email as string,
         groups: (payload["cognito:groups"] as string[]) ?? [],
         tenantId: payload["custom:tenant_id"] as string,
       });
@@ -52,7 +50,4 @@ export function buildAuthMiddleware(issuer: string, jwks: JwksParam) {
   };
 }
 
-export const authMiddleware = buildAuthMiddleware(
-  ISSUER,
-  createRemoteJWKSet(new URL(JWKS_URI))
-);
+export const authMiddleware = buildAuthMiddleware(ISSUER, createRemoteJWKSet(new URL(JWKS_URI)));

@@ -1,8 +1,8 @@
-import { render, screen, cleanup } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Routes, Route } from "react-router-dom";
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { User } from "oidc-client-ts";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Protected from "./Protected";
 
 vi.mock("../auth", () => ({
@@ -33,7 +33,7 @@ function renderProtected() {
         <Route path="/protected" element={<Protected />} />
         <Route path="/" element={<div>Home Page</div>} />
       </Routes>
-    </MemoryRouter>
+    </MemoryRouter>,
   );
 }
 
@@ -76,9 +76,8 @@ describe("Protected — ログイン済み", () => {
       "fetch",
       vi.fn().mockResolvedValue({
         status: 200,
-        json: () =>
-          Promise.resolve({ user: { sub: "user-1", email: "test@example.com" } }),
-      })
+        json: () => Promise.resolve({ user: { sub: "user-1", email: "test@example.com" } }),
+      }),
     );
     const user = userEvent.setup();
     renderProtected();
@@ -108,7 +107,7 @@ describe("Protected — ログイン済み", () => {
         headers: expect.objectContaining({
           Authorization: "Bearer test-access-token",
         }),
-      })
+      }),
     );
   });
 
@@ -118,13 +117,11 @@ describe("Protected — ログイン済み", () => {
       vi.fn().mockResolvedValue({
         status: 403,
         json: () => Promise.resolve({ error: "Forbidden" }),
-      })
+      }),
     );
     const user = userEvent.setup();
     renderProtected();
-    await user.click(
-      await screen.findByRole("button", { name: /\/api\/admin\/stats/ })
-    );
+    await user.click(await screen.findByRole("button", { name: /\/api\/admin\/stats/ }));
 
     expect(await screen.findByText("403")).toBeInTheDocument();
     expect(screen.getByText(/Forbidden/)).toBeInTheDocument();
@@ -133,7 +130,8 @@ describe("Protected — ログイン済み", () => {
   it("複数の API を叩いた結果がそれぞれ表示される", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn()
+      vi
+        .fn()
         .mockResolvedValueOnce({
           status: 200,
           json: () => Promise.resolve({ user: { email: "me@example.com" } }),
@@ -141,7 +139,7 @@ describe("Protected — ログイン済み", () => {
         .mockResolvedValueOnce({
           status: 200,
           json: () => Promise.resolve({ orders: [{ id: "order-1" }] }),
-        })
+        }),
     );
 
     const user = userEvent.setup();

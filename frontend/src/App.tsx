@@ -1,6 +1,6 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Home from "./pages/Home";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
 import Callback from "./pages/Callback";
+import Home from "./pages/Home";
 import Protected from "./pages/Protected";
 
 export default function App() {

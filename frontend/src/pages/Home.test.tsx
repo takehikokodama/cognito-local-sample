@@ -1,8 +1,8 @@
-import { render, screen, cleanup } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Routes, Route } from "react-router-dom";
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { User } from "oidc-client-ts";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Home from "./Home";
 
 // userManager をモック (auth.ts がブラウザ API を使うため)
@@ -24,7 +24,7 @@ function renderHome() {
         <Route path="/" element={<Home />} />
         <Route path="/protected" element={<div>Protected Page</div>} />
       </Routes>
-    </MemoryRouter>
+    </MemoryRouter>,
   );
 }
 
@@ -106,7 +106,7 @@ describe("Home — ログイン済み", () => {
 
   it("グループ情報が表示される", async () => {
     vi.mocked(userManager.getUser).mockResolvedValue(
-      makeUser({ "cognito:groups": ["admin", "user"] })
+      makeUser({ "cognito:groups": ["admin", "user"] }),
     );
     renderHome();
     expect(await screen.findByText(/admin/)).toBeInTheDocument();

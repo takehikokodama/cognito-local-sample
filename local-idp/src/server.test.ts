@@ -1,10 +1,10 @@
-import { describe, it, expect, beforeAll, beforeEach } from "vitest";
-import { generateKeyPair, exportJWK, jwtVerify, decodeJwt } from "jose";
-import request from "supertest";
-import { createApp, setKeys, clearAuthCodes } from "./server";
-import { verifyPkce } from "./pkce";
+import crypto from "node:crypto";
 import type { Application } from "express";
-import crypto from "crypto";
+import { decodeJwt, exportJWK, generateKeyPair, jwtVerify } from "jose";
+import request from "supertest";
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { verifyPkce } from "./pkce";
+import { clearAuthCodes, createApp, setKeys } from "./server";
 
 let app: Application;
 
@@ -26,18 +26,12 @@ beforeEach(() => {
 describe("verifyPkce", () => {
   it("S256: sha256(verifier) の base64url が challenge と一致すれば true", () => {
     const verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
-    const challenge = crypto
-      .createHash("sha256")
-      .update(verifier)
-      .digest("base64url");
+    const challenge = crypto.createHash("sha256").update(verifier).digest("base64url");
     expect(verifyPkce(verifier, challenge, "S256")).toBe(true);
   });
 
   it("S256: verifier が違えば false", () => {
-    const challenge = crypto
-      .createHash("sha256")
-      .update("correct-verifier")
-      .digest("base64url");
+    const challenge = crypto.createHash("sha256").update("correct-verifier").digest("base64url");
     expect(verifyPkce("wrong-verifier", challenge, "S256")).toBe(false);
   });
 
@@ -60,9 +54,7 @@ describe("GET /.well-known/openid-configuration", () => {
     expect(res.status).toBe(200);
     expect(res.body.issuer).toBe("http://localhost:4000");
     expect(res.body.token_endpoint).toBe("http://localhost:4000/token");
-    expect(res.body.jwks_uri).toBe(
-      "http://localhost:4000/.well-known/jwks.json"
-    );
+    expect(res.body.jwks_uri).toBe("http://localhost:4000/.well-known/jwks.json");
   });
 });
 
@@ -86,7 +78,7 @@ const CLIENT_ID = "local-client";
 
 async function getAuthCode(
   userId: string,
-  opts: { codeChallenge?: string; codeChallengeMethod?: string; nonce?: string } = {}
+  opts: { codeChallenge?: string; codeChallengeMethod?: string; nonce?: string } = {},
 ) {
   const res = await request(app)
     .post("/authorize/login")
@@ -100,14 +92,12 @@ async function getAuthCode(
       nonce: opts.nonce ?? "",
     });
   expect(res.status).toBe(302);
-  const location = res.headers["location"] as string;
+  const location = res.headers.location as string;
+  // biome-ignore lint/style/noNonNullAssertion: test helper — code param is guaranteed by the redirect
   return new URL(location).searchParams.get("code")!;
 }
 
-async function exchangeCode(
-  code: string,
-  opts: { codeVerifier?: string } = {}
-) {
+async function exchangeCode(code: string, opts: { codeVerifier?: string } = {}) {
   return request(app)
     .post("/token")
     .type("form")
@@ -122,35 +112,29 @@ async function exchangeCode(
 
 describe("POST /authorize/login", () => {
   it("有効なユーザーID → code を含む redirect", async () => {
-    const res = await request(app)
-      .post("/authorize/login")
-      .type("form")
-      .send({
-        user_id: "user-admin-1",
-        redirect_uri: REDIRECT_URI,
-        state: "my-state",
-        code_challenge: "",
-        code_challenge_method: "",
-        nonce: "",
-      });
+    const res = await request(app).post("/authorize/login").type("form").send({
+      user_id: "user-admin-1",
+      redirect_uri: REDIRECT_URI,
+      state: "my-state",
+      code_challenge: "",
+      code_challenge_method: "",
+      nonce: "",
+    });
     expect(res.status).toBe(302);
-    const url = new URL(res.headers["location"] as string);
+    const url = new URL(res.headers.location as string);
     expect(url.searchParams.get("code")).toBeTruthy();
     expect(url.searchParams.get("state")).toBe("my-state");
   });
 
   it("不正なユーザーID → 400", async () => {
-    const res = await request(app)
-      .post("/authorize/login")
-      .type("form")
-      .send({
-        user_id: "no-such-user",
-        redirect_uri: REDIRECT_URI,
-        state: "",
-        code_challenge: "",
-        code_challenge_method: "",
-        nonce: "",
-      });
+    const res = await request(app).post("/authorize/login").type("form").send({
+      user_id: "no-such-user",
+      redirect_uri: REDIRECT_URI,
+      state: "",
+      code_challenge: "",
+      code_challenge_method: "",
+      nonce: "",
+    });
     expect(res.status).toBe(400);
   });
 });
@@ -209,10 +193,7 @@ describe("POST /token", () => {
 
   it("PKCE S256: 正しい code_verifier → 成功", async () => {
     const verifier = crypto.randomBytes(32).toString("base64url");
-    const challenge = crypto
-      .createHash("sha256")
-      .update(verifier)
-      .digest("base64url");
+    const challenge = crypto.createHash("sha256").update(verifier).digest("base64url");
 
     const code = await getAuthCode("user-normal-1", {
       codeChallenge: challenge,
@@ -224,10 +205,7 @@ describe("POST /token", () => {
 
   it("PKCE S256: 間違った code_verifier → invalid_grant", async () => {
     const verifier = crypto.randomBytes(32).toString("base64url");
-    const challenge = crypto
-      .createHash("sha256")
-      .update(verifier)
-      .digest("base64url");
+    const challenge = crypto.createHash("sha256").update(verifier).digest("base64url");
 
     const code = await getAuthCode("user-normal-1", {
       codeChallenge: challenge,
