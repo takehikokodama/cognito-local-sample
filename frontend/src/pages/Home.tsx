@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
 import type { User } from "oidc-client-ts";
-import { userManager } from "../auth";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { userManager } from "../auth";
 
 export default function Home() {
   const [user, setUser] = useState<User | null>(null);
@@ -29,15 +29,15 @@ export default function Home() {
             ✅ ログイン中: <strong>{user.profile.email as string}</strong>
           </p>
           <p style={{ color: "#666", fontSize: 14 }}>
-            グループ:{" "}
-            {((user.profile["cognito:groups"] as string[]) ?? []).join(", ")}
+            グループ: {((user.profile["cognito:groups"] as string[]) ?? []).join(", ")}
             　テナント: {user.profile["custom:tenant_id"] as string}
           </p>
           <div style={{ marginTop: 16 }}>
-            <button onClick={() => navigate("/protected")} style={styles.btn}>
+            <button type="button" onClick={() => navigate("/protected")} style={styles.btn}>
               API を叩く
             </button>
             <button
+              type="button"
               onClick={logout}
               style={{ ...styles.btn, marginLeft: 8, background: "#666" }}
             >
@@ -48,7 +48,7 @@ export default function Home() {
       ) : (
         <div>
           <p>未ログインです。</p>
-          <button onClick={login} style={styles.btn}>
+          <button type="button" onClick={login} style={styles.btn}>
             ログイン
           </button>
         </div>

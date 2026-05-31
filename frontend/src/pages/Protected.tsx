@@ -46,7 +46,7 @@ export default function Protected() {
   return (
     <div style={styles.container}>
       <h1>Protected Page</h1>
-      <button onClick={() => navigate("/")} style={styles.linkBtn}>
+      <button type="button" onClick={() => navigate("/")} style={styles.linkBtn}>
         ← ホームへ
       </button>
 
@@ -54,6 +54,7 @@ export default function Protected() {
         {["/api/me", "/api/orders", "/api/admin/stats"].map((path) => (
           <button
             key={path}
+            type="button"
             onClick={() => callApi(path)}
             disabled={loading === path}
             style={styles.btn}
@@ -80,9 +81,7 @@ export default function Protected() {
                 </span>
               </div>
               <pre style={styles.pre}>
-                {result.error
-                  ? result.error
-                  : JSON.stringify(result.data, null, 2)}
+                {result.error ? result.error : JSON.stringify(result.data, null, 2)}
               </pre>
             </div>
           ))}

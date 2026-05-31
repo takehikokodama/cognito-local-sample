@@ -1,18 +1,18 @@
-import express, { Request, Response } from "express";
+import crypto from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
+import express, { type Request, type Response } from "express";
 import {
-  generateKeyPair,
-  exportJWK,
-  exportPKCS8,
-  importPKCS8,
-  SignJWT,
   type JWK,
   type KeyLike,
+  SignJWT,
+  exportJWK,
+  exportPKCS8,
+  generateKeyPair,
+  importPKCS8,
 } from "jose";
-import crypto from "crypto";
-import fs from "fs";
-import path from "path";
-import { users } from "./users";
 import { verifyPkce } from "./pkce";
+import { users } from "./users";
 
 const PORT = 4000;
 const ISSUER = process.env.OIDC_ISSUER ?? "http://localhost:4000";
@@ -65,10 +65,7 @@ export function clearAuthCodes(): void {
   authCodes.clear();
 }
 
-async function signJwt(
-  payload: Record<string, unknown>,
-  expiresIn: string
-): Promise<string> {
+async function signJwt(payload: Record<string, unknown>, expiresIn: string): Promise<string> {
   return new SignJWT(payload)
     .setProtectedHeader({ alg: "RS256", kid: KID })
     .setIssuedAt()
@@ -102,33 +99,30 @@ export function createApp() {
   app.use(express.json());
 
   // OIDC Discovery
-  app.get(
-    "/.well-known/openid-configuration",
-    (_req: Request, res: Response) => {
-      res.json({
-        issuer: ISSUER,
-        authorization_endpoint: `${ISSUER}/authorize`,
-        token_endpoint: `${ISSUER}/token`,
-        jwks_uri: `${ISSUER}/.well-known/jwks.json`,
-        end_session_endpoint: `${ISSUER}/logout`,
-        response_types_supported: ["code"],
-        subject_types_supported: ["public"],
-        id_token_signing_alg_values_supported: ["RS256"],
-        scopes_supported: ["openid", "email", "profile"],
-        token_endpoint_auth_methods_supported: ["none"],
-        claims_supported: [
-          "sub",
-          "iss",
-          "aud",
-          "email",
-          "name",
-          "cognito:groups",
-          "custom:tenant_id",
-        ],
-        code_challenge_methods_supported: ["S256", "plain"],
-      });
-    }
-  );
+  app.get("/.well-known/openid-configuration", (_req: Request, res: Response) => {
+    res.json({
+      issuer: ISSUER,
+      authorization_endpoint: `${ISSUER}/authorize`,
+      token_endpoint: `${ISSUER}/token`,
+      jwks_uri: `${ISSUER}/.well-known/jwks.json`,
+      end_session_endpoint: `${ISSUER}/logout`,
+      response_types_supported: ["code"],
+      subject_types_supported: ["public"],
+      id_token_signing_alg_values_supported: ["RS256"],
+      scopes_supported: ["openid", "email", "profile"],
+      token_endpoint_auth_methods_supported: ["none"],
+      claims_supported: [
+        "sub",
+        "iss",
+        "aud",
+        "email",
+        "name",
+        "cognito:groups",
+        "custom:tenant_id",
+      ],
+      code_challenge_methods_supported: ["S256", "plain"],
+    });
+  });
 
   // JWKS
   app.get("/.well-known/jwks.json", (_req: Request, res: Response) => {
@@ -150,9 +144,7 @@ export function createApp() {
     } = req.query as Record<string, string>;
 
     if (response_type !== "code" || client_id !== CLIENT_ID) {
-      res
-        .status(400)
-        .send("Invalid request: unsupported response_type or client_id");
+      res.status(400).send("Invalid request: unsupported response_type or client_id");
       return;
     }
 
@@ -170,7 +162,7 @@ export function createApp() {
               ${escapeHtml(u.name)}<br>
               <small style="color:#666">${escapeHtml(u.email)} [${escapeHtml(u.groups.join(", "))}]</small>
             </button>
-          </form>`
+          </form>`,
       )
       .join("\n");
 
@@ -192,14 +184,8 @@ export function createApp() {
 
   // Handle login form POST
   app.post("/authorize/login", (req: Request, res: Response) => {
-    const {
-      user_id,
-      redirect_uri,
-      state,
-      code_challenge,
-      code_challenge_method,
-      nonce,
-    } = req.body as Record<string, string>;
+    const { user_id, redirect_uri, state, code_challenge, code_challenge_method, nonce } =
+      req.body as Record<string, string>;
 
     const user = users.find((u) => u.id === user_id);
     if (!user || !redirect_uri) {
@@ -226,8 +212,10 @@ export function createApp() {
 
   // Token endpoint
   app.post("/token", async (req: Request, res: Response) => {
-    const { grant_type, code, redirect_uri, client_id, code_verifier } =
-      req.body as Record<string, string>;
+    const { grant_type, code, redirect_uri, client_id, code_verifier } = req.body as Record<
+      string,
+      string
+    >;
 
     res.header("Cache-Control", "no-store");
 
@@ -291,7 +279,7 @@ export function createApp() {
         token_use: "access",
         scope: "openid email profile",
       },
-      "1h"
+      "1h",
     );
 
     const idToken = await signJwt(
@@ -302,7 +290,7 @@ export function createApp() {
         name: user.name,
         ...(entry.nonce ? { nonce: entry.nonce } : {}),
       },
-      "1h"
+      "1h",
     );
 
     res.json({

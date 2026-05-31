@@ -1,7 +1,6 @@
 import { UserManager, WebStorageStateStore } from "oidc-client-ts";
 
-const authority =
-  import.meta.env.VITE_OIDC_AUTHORITY ?? "http://localhost:4000";
+const authority = import.meta.env.VITE_OIDC_AUTHORITY ?? "http://localhost:4000";
 
 export const userManager = new UserManager({
   authority,
