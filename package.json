@@ -16,6 +16,8 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
+    "@commitlint/cli": "^21.0.2",
+    "@commitlint/config-conventional": "^21.0.2",
     "concurrently": "^9.1.0",
     "husky": "^9.1.0",
     "lint-staged": "^15.2.0"
