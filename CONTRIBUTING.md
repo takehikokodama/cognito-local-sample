@@ -156,6 +156,8 @@ gitGraph
 
 ## コミットメッセージ
 
+`git commit` 時に [commitlint](https://commitlint.js.org/) が `commit-msg` フックで自動検証します。形式に違反するとコミットが拒否されます。
+
 [Conventional Commits](https://www.conventionalcommits.org/) 形式を採用します。
 
 ```
