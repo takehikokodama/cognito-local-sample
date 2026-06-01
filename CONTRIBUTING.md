@@ -116,3 +116,85 @@ ReactDOM.createRoot(document.getElementById("root")!).render(...);
 
 - 関数名・変数名で WHAT（何をするか）を表現し、それ自体にはコメントを書きません
 - コメントが必要な場合は、**非自明な制約・回避策・不変条件**など「なぜそう書いたか」に限定します
+
+---
+
+## ブランチ戦略
+
+```mermaid
+gitGraph
+   commit id: "initial"
+   branch develop
+   checkout develop
+   commit id: "feat: add login page"
+   branch feature/add-refresh-token
+   checkout feature/add-refresh-token
+   commit id: "feat: add refresh token"
+   checkout develop
+   merge feature/add-refresh-token id: "Merge PR #3"
+   commit id: "fix: resolve CORS error"
+   checkout main
+   merge develop id: "Release to production" tag: "v1.1.0"
+```
+
+| ブランチ | 用途 | デプロイ先 |
+|---|---|---|
+| `main` | 本番リリース済みコード。直接 push 禁止 | 本番環境 |
+| `develop` | 開発の統合ブランチ（デフォルト）。直接 push 禁止 | 検証環境 |
+| `feature/<topic>` | 機能追加 | — |
+| `fix/<topic>` | バグ修正 | — |
+| `hotfix/<topic>` | 本番緊急修正（`main` から分岐し `main` と `develop` 両方にマージ） | — |
+| `docs/<topic>` | ドキュメント変更のみ | — |
+| `chore/<topic>` | 依存更新・ビルド設定など | — |
+
+- `<topic>` はケバブケース（例: `feature/add-refresh-token`）
+- 作業ブランチは `develop` から分岐し、`develop` に PR を出す
+- `develop` → `main` のマージは CI + 検証環境でのテスト通過後に行う
+- マージ済みのブランチは削除する
+
+---
+
+## コミットメッセージ
+
+`git commit` 時に [commitlint](https://commitlint.js.org/) が `commit-msg` フックで自動検証します。形式に違反するとコミットが拒否されます。
+
+[Conventional Commits](https://www.conventionalcommits.org/) 形式を採用します。
+
+```
+<type>: <subject>
+```
+
+| type | 用途 |
+|---|---|
+| `feat` | 新機能 |
+| `fix` | バグ修正 |
+| `docs` | ドキュメントのみの変更 |
+| `test` | テスト追加・修正 |
+| `refactor` | 動作を変えないリファクタリング |
+| `chore` | 依存更新・ビルド設定・CI など |
+| `style` | フォーマット変更（動作に影響なし） |
+
+- `<subject>` は英語・動詞の原形から始める（例: `add`, `fix`, `update`）
+- 50 文字以内
+- 末尾にピリオドを付けない
+- 破壊的変更は `!` を付ける（例: `feat!: change auth token format`）
+
+```
+feat: add JWT refresh token support
+fix: resolve CORS error on /api/me endpoint
+docs: update README with AWS deployment steps
+chore: bump vitest to 3.0
+```
+
+---
+
+## プルリクエスト
+
+- `main` / `develop` への直接 push は禁止。必ず PR を通す
+- PR タイトルはコミットメッセージと同形式（`feat: ~` など）
+- WIP の場合は **Draft PR** を使う
+- マージ前の条件:
+  - CI（lint・テスト）がすべて green
+  - 1名以上の Approve
+- 作業ブランチ → `develop` のマージは **Squash and merge** を推奨（`develop` の履歴を整理するため）
+- `develop` → `main` のマージは検証環境での動作確認後に **Merge commit** を使用する（リリース履歴を残すため）
