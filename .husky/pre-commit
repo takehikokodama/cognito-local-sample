@@ -1,2 +1,2 @@
 npx lint-staged
-npm run license:check
+npm run license:check > /dev/null
