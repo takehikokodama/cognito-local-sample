@@ -12,6 +12,8 @@
     "lint": "biome lint .",
     "format": "biome format . --write",
     "check": "biome check .",
+    "license:list": "license-checker --excludePackages 'cognito-local-sample@1.0.0;backend@1.0.0;frontend@1.0.0;local-idp@1.0.0'",
+    "license:check": "license-checker --onlyAllow 'MIT;ISC;Apache-2.0;BSD-2-Clause;BSD-3-Clause;0BSD;MIT-0;MIT OR Apache-2.0;Python-2.0;CC0-1.0;CC-BY-3.0;CC-BY-4.0;(MIT AND CC-BY-3.0)' --excludePackages 'cognito-local-sample@1.0.0;backend@1.0.0;frontend@1.0.0;local-idp@1.0.0'",
     "prepare": "husky"
   },
   "devDependencies": {
@@ -20,6 +22,7 @@
     "@commitlint/config-conventional": "^21.0.2",
     "concurrently": "^9.1.0",
     "husky": "^9.1.0",
+    "license-checker": "^25.0.1",
     "lint-staged": "^15.2.0"
   },
   "lint-staged": {
